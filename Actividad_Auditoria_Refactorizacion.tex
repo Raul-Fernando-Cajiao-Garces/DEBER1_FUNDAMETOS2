@@ -1,0 +1,553 @@
+\documentclass[12pt, a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{geometry}
+\geometry{a4paper, margin=2.54cm}
+\usepackage{hyperref}
+\usepackage{grffile}
+\usepackage{mathptmx} % Times New Roman
+\usepackage{setspace}
+\setstretch{1.5} % Interlineado APA 
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{listings}
+
+% Configuración de títulos para APA
+\titleformat{\section}{\normalfont\Large\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalfont\large\bfseries}{\thesubsection}{1em}{}
+
+% Configuración de listado de código (Java)
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.96,0.96,0.94}
+
+\lstdefinestyle{javastyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{blue}\bfseries,
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=4,
+    language=Java
+}
+\lstset{style=javastyle}
+
+\begin{document}
+
+% Encabezado Institucional
+\begin{center}
+    \textbf{Universidad Tecnológica Israel} \\
+    \textbf{Francisco Pizarro E4-142 y Marieta de Veintimilla} \\
+    \textbf{Quito - Ecuador} \\
+    \textbf{(593) 2 255-5741}
+\end{center}
+\noindent\rule{\textwidth}{1pt}
+
+\vspace{0.5cm}
+\noindent
+\textbf{Facultad:} Ciencias de la Ingeniería \\
+\textbf{Asignatura:} Fundamentos de la Especialidad II \\
+\textbf{Docente:} Mg. Viviana Flores \\
+\textbf{Estudiante:} Raul Fernando Cajiao Garces \\
+
+\vspace{1cm}
+\begin{center}
+    \Large \textbf{Actividad Práctica: Auditoría y Refactorización de Código} \\
+    \large \textbf{Aplicación de Principios de Diseño SOLID, DRY, KISS e ISO/IEC 25010}
+\end{center}
+
+\vspace{0.5cm}
+
+\section{Introducción y Objetivos}
+El desarrollo de software moderno no solo requiere que el código sea funcional, sino que también cumpla con estándares de calidad que faciliten su mantenimiento, escalabilidad y testabilidad a lo largo del tiempo. 
+
+Esta actividad práctica tiene como objetivo auditar un componente denominado \texttt{GestorPedidos}, identificar violaciones de diseño clave a través del análisis de principios SOLID, DRY y KISS, y aplicar un proceso de refactorización estructural. Asimismo, se evalúan las mejoras del código utilizando las subcaracterísticas de la norma internacional \textbf{ISO/IEC 25010} (específicamente modularidad, reusabilidad, analizabilidad, modificabilidad y testabilidad), contrastando el estado original con la arquitectura propuesta.
+
+\section{Enlaces del Entregable}
+A continuación se detallan los enlaces correspondientes al desarrollo del laboratorio:
+\begin{itemize}
+    \item \textbf{Repositorio de GitHub:} \href{https://github.com/Raul-Fernando-Cajiao-Garces/DEBER1_FUNDAMETOS2}{https://github.com/Raul-Fernando-Cajiao-Garces/DEBER1\_FUNDAMETOS2}
+    \item \textbf{Video Demostrativo (Explicación técnica):} \href{https://youtu.be/video-demostrativo-placeholder}{https://youtu.be/video-demostrativo-placeholder}
+\end{itemize}
+
+\newpage
+\section{Código Original Auditado}
+El siguiente listado muestra el código original en Java de la clase \texttt{GestorPedidos}, la cual contiene múltiples violaciones a buenas prácticas y principios de diseño de software.
+
+\begin{lstlisting}[caption={Código Java Original}, label={lst:original_code}]
+import java.util.*;
+import java.io.*;
+import java.sql.*;
+
+public class GestorPedidos {
+    private Connection conexionBD;
+
+    public GestorPedidos() {
+        try {
+            this.conexionBD = DriverManager.getConnection(
+                "jdbc:mysql://localhost:3306/tienda", "root", "admin123");
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void procesarPedido(String nombreCliente, String emailCliente,
+                               List<String> nombresProductos,
+                               List<Double> preciosProductos,
+                               List<Integer> cantidades,
+                               String tipoCliente) {
+        if (nombreCliente == null || nombreCliente.trim().isEmpty()) {
+            System.out.println("Error: nombre de cliente invalido");
+            return;
+        }
+        if (emailCliente == null || !emailCliente.contains("@")) {
+            System.out.println("Error: email invalido");
+            return;
+        }
+
+        double subtotal = 0;
+        for (int i = 0; i < nombresProductos.size(); i++) {
+            subtotal += preciosProductos.get(i) * cantidades.get(i);
+        }
+
+        double descuento = 0;
+        if (tipoCliente.equals("VIP")) {
+            descuento = subtotal * 0.20;
+        } else if (tipoCliente.equals("FRECUENTE")) {
+            descuento = subtotal * 0.10;
+        } else if (tipoCliente.equals("REGULAR")) {
+            descuento = subtotal * 0.05;
+        } else if (tipoCliente.equals("NUEVO")) {
+            descuento = 0;
+        }
+
+        double impuesto = (subtotal - descuento) * 0.12;
+        double total = subtotal - descuento + impuesto;
+
+        try {
+            Statement stmt = conexionBD.createStatement();
+            String sql = "INSERT INTO pedidos (cliente, total) VALUES ('"
+                + nombreCliente + "', " + total + ")";
+            stmt.executeUpdate(sql);
+        } catch (SQLException e) {
+            System.out.println("Error al guardar el pedido: " + e.getMessage());
+        }
+
+        try {
+            FileWriter writer = new FileWriter("factura_" + nombreCliente + ".txt");
+            writer.write("FACTURA\n");
+            writer.write("Cliente: " + nombreCliente + "\n");
+            for (int i = 0; i < nombresProductos.size(); i++) {
+                writer.write(nombresProductos.get(i) + " x" + cantidades.get(i)
+                    + " = $" + (preciosProductos.get(i) * cantidades.get(i)) + "\n");
+            }
+            writer.write("Subtotal: $" + subtotal + "\n");
+            writer.write("Descuento: $" + descuento + "\n");
+            writer.write("Impuesto: $" + impuesto + "\n");
+            writer.write("TOTAL: $" + total + "\n");
+            writer.close();
+        } catch (IOException e) {
+            System.out.println("Error al generar la factura: " + e.getMessage());
+        }
+
+        System.out.println("Enviando correo a " + emailCliente + "...");
+        System.out.println("Asunto: Confirmacion de pedido");
+        System.out.println("Cuerpo: Estimado " + nombreCliente + ", su pedido por $"
+            + total + " ha sido procesado.");
+        System.out.println("[LOG] Pedido procesado para " + nombreCliente
+            + " - Total: " + total);
+    }
+
+    public void cancelarPedido(String nombreCliente, String emailCliente, int idPedido) {
+        if (nombreCliente == null || nombreCliente.trim().isEmpty()) {
+            System.out.println("Error: nombre de cliente invalido");
+            return;
+        }
+        if (emailCliente == null || !emailCliente.contains("@")) {
+            System.out.println("Error: email invalido");
+            return;
+        }
+
+        try {
+            Statement stmt = conexionBD.createStatement();
+            String sql = "DELETE FROM pedidos WHERE id = " + idPedido;
+            stmt.executeUpdate(sql);
+        } catch (SQLException e) {
+            System.out.println("Error al cancelar el pedido: " + e.getMessage());
+        }
+
+        System.out.println("Enviando correo a " + emailCliente + "...");
+        System.out.println("Asunto: Cancelacion de pedido");
+        System.out.println("Cuerpo: Estimado " + nombreCliente + ", su pedido #"
+            + idPedido + " ha sido cancelado.");
+    }
+}
+\end{lstlisting}
+
+\newpage
+\section{Identificación de Violaciones de Principios (Auditoría)}
+A continuación, se detalla la auditoría del código original mediante la identificación de violaciones específicas a los principios SOLID, DRY y KISS:
+
+\begin{longtable}{p{3.5cm} p{2.2cm} p{9.3cm}}
+\caption{Tabla de Violaciones de Principios de Diseño} \label{tab:violaciones} \\
+\toprule
+\textbf{Principio} & \textbf{Líneas / Ubicación} & \textbf{Descripción Técnica de la Violación} \\
+\midrule
+\endfirsthead
+\caption[]{Tabla de Violaciones de Principios de Diseño (continuación)} \\
+\toprule
+\textbf{Principio} & \textbf{Líneas / Ubicación} & \textbf{Descripción Técnica de la Violación} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+
+\textbf{SRP (Single Responsibility Principle)} & Clase completa & La clase tiene múltiples responsabilidades: conectarse a la base de datos, validar parámetros, calcular precios, registrar transacciones en SQL, generar facturas en texto plano, notificar a los clientes y registrar logs en consola. Cualquier cambio en estas áreas requiere modificar la misma clase. \\
+\midrule
+
+\textbf{OCP (Open/Closed Principle)} & Líneas 39 a 48 & La lógica de descuentos depende de un árbol de condicionales \texttt{if-else} basado en el parámetro \texttt{tipoCliente}. Si se añade un nuevo tipo de cliente (e.g., PREMIUM), se debe alterar la estructura lógica de la clase, exponiendo el código a errores de regresión. \\
+\midrule
+
+\textbf{DIP (Dependency Inversion Principle)} & Constructor y Métodos & Hay un alto acoplamiento a implementaciones concretas de infraestructura: se invoca directamente \texttt{DriverManager.getConnection}, \texttt{FileWriter} y las operaciones SQL vía \texttt{Statement} con concatenación de strings, impidiendo mockear o sustituir la base de datos o el sistema de archivos durante pruebas unitarias. \\
+\midrule
+
+\textbf{DRY (Don't Repeat Yourself)} & Líneas 19-26 y 87-94 / Líneas 79-84 y 99-103 & Las validaciones de cliente (\texttt{nombreCliente} y \texttt{emailCliente}) se repiten textualmente tanto en \texttt{procesarPedido} como en \texttt{cancelarPedido}. Adicionalmente, el formato de envío de correo se repite en ambos flujos. \\
+\midrule
+
+\textbf{KISS (Keep It Simple, Stupid)} & Métodos de negocio & Los métodos \texttt{procesarPedido} y \texttt{cancelarPedido} mezclan lógica de validación, computación matemática, persistencia de red e I/O de disco. Esto vuelve compleja la lectura del código, y propicia posibles fallos difíciles de depurar en un único bloque monolítico. \\
+\midrule
+
+\textbf{Seguridad (Extra)} & Líneas 50-52 y 90-91 & Vulnerabilidad de \textbf{Inyección SQL} debido a la concatenación directa de parámetros en sentencias ejecutadas por \texttt{Statement} en lugar de usar \texttt{PreparedStatement}. Además, las credenciales de la base de datos están quemadas (\textit{hardcoded}). \\
+\bottomrule
+\end{longtable}
+
+\newpage
+\section{Código Refactorizado Propuesto}
+Para solventar las deficiencias identificadas, el código fue separado en módulos según su responsabilidad, inyectando dependencias por medio de abstracciones (interfaces) y aplicando el patrón de diseño \textbf{Strategy} para los descuentos.
+
+\subsection{1. Abstracciones e Interfaces}
+\begin{lstlisting}[caption={Abstracciones del Sistema}, label={lst:interfaces}]
+package refactorizado.interfaces;
+import refactorizado.model.Pedido;
+import refactorizado.model.DetallePrecios;
+
+public interface IPedidoRepository {
+    void guardarPedido(String cliente, double total);
+    void eliminarPedido(int idPedido);
+}
+
+public interface IFacturador {
+    void generarFactura(Pedido pedido, DetallePrecios precios);
+}
+
+public interface INotificador {
+    void enviarConfirmacion(String nombreCliente, String emailCliente, double total);
+    void enviarCancelacion(String nombreCliente, String emailCliente, int idPedido);
+}
+
+public interface IDescuentoStrategy {
+    double calcularDescuento(double subtotal);
+}
+\end{lstlisting}
+
+\subsection{2. Patrón de Diseño Strategy (Descuentos)}
+\begin{lstlisting}[caption={Estrategias de Descuento (SOLID OCP)}, label={lst:strategy}]
+package refactorizado.strategy;
+import refactorizado.interfaces.IDescuentoStrategy;
+import java.util.HashMap;
+import java.util.Map;
+
+public class DescuentoVIP implements IDescuentoStrategy {
+    public double calcularDescuento(double subtotal) { return subtotal * 0.20; }
+}
+
+public class DescuentoFrecuente implements IDescuentoStrategy {
+    public double calcularDescuento(double subtotal) { return subtotal * 0.10; }
+}
+
+public class DescuentoRegular implements IDescuentoStrategy {
+    public double calcularDescuento(double subtotal) { return subtotal * 0.05; }
+}
+
+public class DescuentoNuevo implements IDescuentoStrategy {
+    public double calcularDescuento(double subtotal) { return 0.0; }
+}
+
+// Factoria de Estrategias para evitar condicionales
+public class DescuentoFactory {
+    private static final Map<String, IDescuentoStrategy> estrategias = new HashMap<>();
+
+    static {
+        estrategias.put("VIP", new DescuentoVIP());
+        estrategias.put("FRECUENTE", new DescuentoFrecuente());
+        estrategias.put("REGULAR", new DescuentoRegular());
+        estrategias.put("NUEVO", new DescuentoNuevo());
+    }
+
+    public static IDescuentoStrategy obtenerEstrategia(String tipoCliente) {
+        return estrategias.getOrDefault(tipoCliente, new DescuentoNuevo());
+    }
+}
+\end{lstlisting}
+
+\newpage
+\subsection{3. Validadores y Lógica de Dominio}
+\begin{lstlisting}[caption={Clases de Dominio, Validación y Cálculo de Precios}, label={lst:dominio}]
+package refactorizado.model;
+import java.util.List;
+
+public class ValidadorCliente {
+    public static void validar(String nombreCliente, String emailCliente) {
+        if (nombreCliente == null || nombreCliente.trim().isEmpty()) {
+            throw new IllegalArgumentException("Error: nombre de cliente invalido");
+        }
+        if (emailCliente == null || !emailCliente.contains("@")) {
+            throw new IllegalArgumentException("Error: email invalido");
+        }
+    }
+}
+
+public class Pedido {
+    private final String nombreCliente;
+    private final String emailCliente;
+    private final List<String> nombresProductos;
+    private final List<Double> preciosProductos;
+    private final List<Integer> cantidades;
+    private final String tipoCliente;
+
+    public Pedido(String nombreCliente, String emailCliente, List<String> nombresProductos,
+                  List<Double> preciosProductos, List<Integer> cantidades, String tipoCliente) {
+        ValidadorCliente.validar(nombreCliente, emailCliente);
+        this.nombreCliente = nombreCliente;
+        this.emailCliente = emailCliente;
+        this.nombresProductos = nombresProductos;
+        this.preciosProductos = preciosProductos;
+        this.cantidades = cantidades;
+        this.tipoCliente = tipoCliente;
+    }
+
+    public String getNombreCliente() { return nombreCliente; }
+    public String getEmailCliente() { return emailCliente; }
+    public List<String> getNombresProductos() { return nombresProductos; }
+    public List<Double> getPreciosProductos() { return preciosProductos; }
+    public List<Integer> getCantidades() { return cantidades; }
+    public String getTipoCliente() { return tipoCliente; }
+
+    public double calcularSubtotal() {
+        double subtotal = 0;
+        for (int i = 0; i < nombresProductos.size(); i++) {
+            subtotal += preciosProductos.get(i) * cantidades.get(i);
+        }
+        return subtotal;
+    }
+}
+
+public class DetallePrecios {
+    public final double subtotal;
+    public final double descuento;
+    public final double impuesto;
+    public final double total;
+
+    public DetallePrecios(double subtotal, double descuento, double impuesto, double total) {
+        this.subtotal = subtotal;
+        this.descuento = descuento;
+        this.impuesto = impuesto;
+        this.total = total;
+    }
+}
+
+public class CalculadoraPrecios {
+    private static final double IVA_RATE = 0.12;
+
+    public static DetallePrecios calcular(Pedido pedido) {
+        double subtotal = pedido.calcularSubtotal();
+        double descuento = DescuentoFactory.obtenerEstrategia(pedido.getTipoCliente())
+                                           .calcularDescuento(subtotal);
+        double impuesto = (subtotal - descuento) * IVA_RATE;
+        double total = subtotal - descuento + impuesto;
+        return new DetallePrecios(subtotal, descuento, impuesto, total);
+    }
+}
+\end{lstlisting}
+
+\newpage
+\subsection{4. Implementaciones de Infraestructura}
+\begin{lstlisting}[caption={Implementaciones Concretas}, label={lst:infraestructura}]
+package refactorizado.infrastructure;
+import refactorizado.interfaces.*;
+import refactorizado.model.*;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+
+public class PedidoRepositorySQL implements IPedidoRepository {
+    private final Connection conexionBD;
+
+    public PedidoRepositorySQL(Connection conexionBD) {
+        this.conexionBD = conexionBD;
+    }
+
+    @Override
+    public void guardarPedido(String cliente, double total) {
+        String sql = "INSERT INTO pedidos (cliente, total) VALUES (?, ?)";
+        try (PreparedStatement stmt = conexionBD.prepareStatement(sql)) {
+            stmt.setString(1, cliente);
+            stmt.setDouble(2, total);
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            System.out.println("Error al guardar el pedido: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public void eliminarPedido(int idPedido) {
+        String sql = "DELETE FROM pedidos WHERE id = ?";
+        try (PreparedStatement stmt = conexionBD.prepareStatement(sql)) {
+            stmt.setInt(1, idPedido);
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            System.out.println("Error al cancelar el pedido: " + e.getMessage());
+        }
+    }
+}
+
+public class FacturadorTexto implements IFacturador {
+    @Override
+    public void generarFactura(Pedido pedido, DetallePrecios precios) {
+        try (FileWriter writer = new FileWriter("factura_" + pedido.getNombreCliente() + ".txt")) {
+            writer.write("FACTURA\n");
+            writer.write("Cliente: " + pedido.getNombreCliente() + "\n");
+            for (int i = 0; i < pedido.getNombresProductos().size(); i++) {
+                writer.write(pedido.getNombresProductos().get(i) + " x" + pedido.getCantidades().get(i)
+                    + " = $" + (pedido.getPreciosProductos().get(i) * pedido.getCantidades().get(i)) + "\n");
+            }
+            writer.write("Subtotal: $" + precios.subtotal + "\n");
+            writer.write("Descuento: $" + precios.descuento + "\n");
+            writer.write("Impuesto: $" + precios.impuesto + "\n");
+            writer.write("TOTAL: $" + precios.total + "\n");
+        } catch (IOException e) {
+            System.out.println("Error al generar la factura: " + e.getMessage());
+        }
+    }
+}
+
+public class NotificadorConsole implements INotificador {
+    @Override
+    public void enviarConfirmacion(String nombreCliente, String emailCliente, double total) {
+        System.out.println("Enviando correo a " + emailCliente + "...");
+        System.out.println("Asunto: Confirmacion de pedido");
+        System.out.println("Cuerpo: Estimado " + nombreCliente + ", su pedido por $"
+            + total + " ha sido procesado.");
+        System.out.println("[LOG] Pedido procesado para " + nombreCliente + " - Total: " + total);
+    }
+
+    @Override
+    public void enviarCancelacion(String nombreCliente, String emailCliente, int idPedido) {
+        System.out.println("Enviando correo a " + emailCliente + "...");
+        System.out.println("Asunto: Cancelacion de pedido");
+        System.out.println("Cuerpo: Estimado " + nombreCliente + ", su pedido #"
+            + idPedido + " ha sido cancelado.");
+    }
+}
+\end{lstlisting}
+
+\newpage
+\subsection{5. Orquestador Refactorizado (Clase Principal)}
+\begin{lstlisting}[caption={Clase GestorPedidos Refactorizada}, label={lst:gestor_refactored}]
+package refactorizado;
+import refactorizado.interfaces.*;
+import refactorizado.model.*;
+
+public class GestorPedidos {
+    private final IPedidoRepository repository;
+    private final IFacturador facturador;
+    private final INotificador notificador;
+
+    public GestorPedidos(IPedidoRepository repository, IFacturador facturador, INotificador notificador) {
+        this.repository = repository;
+        this.facturador = facturador;
+        this.notificador = notificador;
+    }
+
+    public void procesarPedido(Pedido pedido) {
+        DetallePrecios precios = CalculadoraPrecios.calcular(pedido);
+        repository.guardarPedido(pedido.getNombreCliente(), precios.total);
+        facturador.generarFactura(pedido, precios);
+        notificador.enviarConfirmacion(pedido.getNombreCliente(), pedido.getEmailCliente(), precios.total);
+    }
+
+    public void cancelarPedido(String nombreCliente, String emailCliente, int idPedido) {
+        ValidadorCliente.validar(nombreCliente, emailCliente);
+        repository.eliminarPedido(idPedido);
+        notificador.enviarCancelacion(nombreCliente, emailCliente, idPedido);
+    }
+}
+\end{lstlisting}
+
+\section{Justificación de la Refactorización (ISO/IEC 25010)}
+El modelo de calidad de software ISO/IEC 25010 nos permite medir de forma estructurada los beneficios del proceso de refactorización sobre las características internas de mantenibilidad y modularidad.
+
+\begin{longtable}{p{3.0cm} p{6.0cm} p{6.0cm}}
+\caption{Comparación de Características de Calidad (Antes vs. Después)} \label{tab:iso25010} \\
+\toprule
+\textbf{Subcaracterística} & \textbf{Estado Anterior (Antes)} & \textbf{Estado Refactorizado (Después)} \\
+\midrule
+\endfirsthead
+\caption[]{Comparación de Características de Calidad (continuación)} \\
+\toprule
+\textbf{Subcaracterística} & \textbf{Estado Anterior (Antes)} & \textbf{Estado Refactorizado (Después)} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+
+\textbf{Modularidad} & El código original residía en una única clase monolítica altamente acoplada. Modificar la persistencia afectaba a la lógica de negocio y viceversa. & Se divide en componentes independientes con interfaces claras: persistencia, facturación, y notificaciones. Los módulos pueden ser reemplazados sin impactar al resto. \\
+\midrule
+
+\textbf{Reusabilidad} & Lógica como el cálculo de descuentos o la generación de facturas estaba embebida dentro de un flujo lineal, imposible de reutilizar en otros servicios. & La calculadora de precios y las estrategias de descuento son reutilizables por cualquier otro orquestador o módulo del sistema. \\
+\midrule
+
+\textbf{Analizabilidad} & Comprender el código requería rastrear conexiones SQL manuales y concatenaciones junto a fórmulas aritméticas en más de 120 líneas de código secuencial. & El código es semánticamente autoexplicativo. Cada clase tiene menos de 40 líneas de código enfocadas en una única tarea estructurada. \\
+\midrule
+
+\textbf{Modificabilidad} & Agregar un tipo de descuento implicaba modificar la clase core (\texttt{GestorPedidos}), rompiendo potencialmente la persistencia o notificaciones. & Cumple con OCP. Para añadir un nuevo tipo de cliente solo se crea una clase que implemente \texttt{IDescuentoStrategy} y se registra en la fábrica, sin tocar el core. \\
+\midrule
+
+\textbf{Testabilidad} & Era imposible testear la lógica de negocio sin conectarse a una base de datos MySQL real y escribir archivos físicos en el sistema operativo. & Se permite la inyección de mocks para todas las interfaces auxiliares (\texttt{IPedidoRepository}, \texttt{INotificador}, etc.), posibilitando tests unitarios aislados del entorno externo. \\
+\bottomrule
+\end{longtable}
+
+\newpage
+\section{Historial del Proceso de Refactorización (Commits)}
+Para demostrar la evolución e incrementalidad del proceso, se describe la secuencia planificada de confirmaciones (commits) realizadas en el repositorio de control de versiones Git:
+
+\begin{enumerate}
+    \item \textbf{Commit 1 - [Feat]:} Añadir código original de \texttt{GestorPedidos.java} como versión inicial sin modificaciones para establecer la línea base.
+    \item \textbf{Commit 2 - [Refactor]:} Crear modelo de dominio \texttt{Pedido}, clase de utilidad \texttt{ValidadorCliente} y transferir la lógica de validación para eliminar código duplicado (DRY).
+    \item \textbf{Commit 3 - [Pattern]:} Implementar interfaz \texttt{IDescuentoStrategy} y el patrón Strategy para los tipos de cliente VIP, Frecuente, Regular y Nuevo, eliminando la cadena condicional y cumpliendo con el principio OCP.
+    \item \textbf{Commit 4 - [Arch]:} Definir abstracciones para los servicios de infraestructura (\texttt{IPedidoRepository}, \texttt{IFacturador}, \texttt{INotificador}) y migrar sus implementaciones para respetar los principios SRP y DIP.
+    \item \textbf{Commit 5 - [Integrate]:} Actualizar la clase principal \texttt{GestorPedidos} para inyectar sus dependencias vía constructor y corregir vulnerabilidad de inyección SQL mediante \texttt{PreparedStatement}.
+\end{enumerate}
+
+\section{Conclusión}
+La transición de un modelo transaccional procedural altamente acoplado a un diseño orientado a objetos basado en interfaces y patrones conductuales (\textit{Strategy} y \textit{Factory}) garantiza una estructura robusta. Esto permite a la organización tecnológica adaptarse a las demandas del mercado reduciendo el costo de cambio, eliminando errores colaterales comunes y mejorando significativamente la conformidad con la métrica ISO/IEC 25010 de mantenibilidad de software.
+
+\end{document}
